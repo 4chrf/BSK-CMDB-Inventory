@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "hosts": [
+    {
+      "id": "sample-1",
+      "server": "SAMPLE-SRV-01",
+      "sample": true,
+      "records": [
+        {
+          "server": "SAMPLE-SRV-01",
+          "application": "Demonstration application",
+          "component": "Web",
+          "status": "QA",
+          "criticality": "Medium",
+          "ha": "Standalone",
+          "secondary": "",
+          "group": "Sample infrastructure",
+          "owner": "Sample owner",
+          "installed": "",
+          "asset": "SAMPLE-ASSET-1",
+          "location": "Sample room",
+          "rack": "DEMO-01",
+          "rackUnit": "4",
+          "cluster": "",
+          "bay": "",
+          "source": "Representative sample data",
+          "sourceRow": ""
+        }
+      ],
+      "placements": [
+        {
+          "rackId": "sample-rack",
+          "unit": 4,
+          "height": 2,
+          "label": "SAMPLE-SRV-01",
+          "source": "Representative sample data",
+          "positionBasis": "Sample data"
+        }
+      ],
+      "connections": []
+    },
+    {
+      "id": "sample-2",
+      "server": "SAMPLE-SRV-02",
+      "sample": true,
+      "records": [
+        {
+          "server": "SAMPLE-SRV-02",
+          "application": "Demonstration application",
+          "component": "Database",
+          "status": "QA",
+          "criticality": "Medium",
+          "ha": "Standalone",
+          "secondary": "",
+          "group": "Sample infrastructure",
+          "owner": "Sample owner",
+          "installed": "",
+          "asset": "SAMPLE-ASSET-2",
+          "location": "Sample room",
+          "rack": "DEMO-01",
+          "rackUnit": "8",
+          "cluster": "",
+          "bay": "",
+          "source": "Representative sample data",
+          "sourceRow": ""
+        }
+      ],
+      "placements": [
+        {
+          "rackId": "sample-rack",
+          "unit": 8,
+          "height": 2,
+          "label": "SAMPLE-SRV-02",
+          "source": "Representative sample data",
+          "positionBasis": "Sample data"
+        }
+      ],
+      "connections": []
+    },
+    {
+      "id": "sample-3",
+      "server": "SAMPLE-SRV-03",
+      "sample": true,
+      "records": [
+        {
+          "server": "SAMPLE-SRV-03",
+          "application": "Demonstration application",
+          "component": "Database",
+          "status": "QA",
+          "criticality": "Medium",
+          "ha": "Standalone",
+          "secondary": "",
+          "group": "Sample infrastructure",
+          "owner": "Sample owner",
+          "installed": "",
+          "asset": "SAMPLE-ASSET-3",
+          "location": "Sample room",
+          "rack": "DEMO-01",
+          "rackUnit": "12",
+          "cluster": "",
+          "bay": "",
+          "source": "Representative sample data",
+          "sourceRow": ""
+        }
+      ],
+      "placements": [
+        {
+          "rackId": "sample-rack",
+          "unit": 12,
+          "height": 2,
+          "label": "SAMPLE-SRV-03",
+          "source": "Representative sample data",
+          "positionBasis": "Sample data"
+        }
+      ],
+      "connections": []
+    }
+  ],
+  "racks": [
+    {
+      "id": "sample-rack",
+      "name": "DEMO-01",
+      "room": "Sample room",
+      "aisle": "Aisle 1",
+      "units": 42,
+      "rj45": "48",
+      "fibre": "12",
+      "source": "Representative sample data",
+      "sample": true,
+      "notes": "Fictional rack for demonstration."
+    }
+  ],
+  "audit": [],
+  "sources": [
+    "Fictional demonstration data"
+  ],
+  "importedAt": "2026-09-21",
+  "notes": [
+    "All included hosts and racks are fictional samples."
+  ]
+}

@@ -1,0 +1,31 @@
+const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert/strict');
+(async()=>{
+const DB=require('./database.cjs')(),worker=(await import('../dist/server/index.js')).default;
+const wait=async(fn)=>{for(let i=0;i<200;i++){if(fn())return;await new Promise(r=>setTimeout(r,10))}throw Error('Timed out waiting for UI')};
+let cookie='';
+const api=async(url,options={},reader=false)=>{const response=await worker.fetch(new Request('https://cmdb.example'+url,{...options,headers:{...options.headers,...(url.startsWith('/api/admin')&&cookie?{cookie}:{}),'oai-authenticated-user-id':reader?'ui-reader':'REPLACE_WITH_VERIFIED_SITE_OWNER_SUBJECT','oai-authenticated-user-email':reader?'reader@example.test':'owner@example.test'}}),{DB});if(response.headers.get('set-cookie'))cookie=response.headers.get('set-cookie').split(';')[0];return response};
+async function setup(path='/',reader=false){const dom=new JSDOM(fs.readFileSync('public/index.html','utf8'),{url:'https://cmdb.example'+path,runScripts:'outside-only'});const w=dom.window;w.structuredClone=structuredClone;w.fetch=(url,opts)=>api(url,opts,reader);w.HTMLDialogElement.prototype.showModal=function(){this.open=true};w.HTMLDialogElement.prototype.close=function(){this.open=false};w.eval(fs.readFileSync('public/model.js','utf8'));w.eval(fs.readFileSync('public/app.js','utf8'));await wait(()=>w.document.querySelector('#hostSearch')||w.document.querySelector('#adminLogin'));return w}
+const user=await setup(),d=user.document;
+assert.equal(d.querySelector('#adminNav'),null);assert(!/administra/i.test(d.body.textContent));assert.equal(d.querySelector('[data-action="add-host"]'),null);assert(d.querySelector('#adminIdentity').hidden);assert(d.querySelector('#adminHelp').hidden);assert(!/Private workspace|Authenticated access|Inventory access|Your Excel data is connected|About this inventory|Data sources/.test(d.body.textContent));
+d.querySelector('[data-action="host"]').click();assert(d.querySelector('#dialog').open);assert.equal(d.querySelector('[data-action="edit-record"]'),null);assert.match(fs.readFileSync('public/styles.css','utf8'),/\.source-line\{display:none\}/);d.querySelector('[data-action="close"]').click();
+user.location.hash='room';await wait(()=>d.querySelector('.rack-tile'));d.querySelector('.rack-tile').click();assert(d.querySelector('.elevation'));assert.equal(d.querySelector('[data-action="edit-rack"]'),null);d.querySelector('[data-action="close"]').click();
+user.location.hash='admin';await wait(()=>d.querySelector('#hostSearch'));assert(!/administra/i.test(d.body.textContent));
+console.log('PASS end-user default for owner; no administration label/link; read-only host and rack details; hash cannot unlock management');
+const w=await setup('/admin'),a=w.document;assert(a.querySelector('[name=confirmation]'));assert.equal(a.querySelector('[data-action="add-host"]'),null);
+function submit(values){for(const [name,value]of Object.entries(values))a.querySelector('[name='+name+']').value=value;a.querySelector('#adminLogin').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}))}
+submit({username:'achraf-test',password:'This-Is-A-Test-Password-Only',confirmation:'This-Is-A-Test-Password-Only'});await wait(()=>a.querySelector('#adminLogin')&&!a.querySelector('[name=confirmation]'));
+submit({username:'achraf-test',password:'incorrect'});await wait(()=>a.querySelector('#loginError')?.textContent.includes('Incorrect'));assert.equal(a.querySelector('#adminNav'),null);
+submit({username:'achraf-test',password:'This-Is-A-Test-Password-Only'});await wait(()=>a.querySelector('[data-save-user]'));assert(a.querySelector('#adminNav'));assert(a.querySelector('#adminLogout'));assert.equal(a.querySelectorAll('[data-quality]').length,4);
+w.location.hash='inventory';await wait(()=>a.querySelector('[data-action="add-host"]'));a.querySelector('[data-action="add-host"]').click();assert(a.querySelector('[name=applicationId]'));a.querySelector('[data-action="close"]').click();
+const stillUser=await setup();assert.equal(stillUser.document.querySelector('[data-action="add-host"]'),null);assert(!/administra/i.test(stillUser.document.body.textContent));
+a.querySelector('#adminLogout').click();await wait(()=>a.querySelector('#adminLogin'));assert.equal(a.querySelector('#adminNav'),null);assert.equal(a.querySelector('[data-action="add-host"]'),null);
+console.log('PASS /admin setup, incorrect login, correct login, management controls, default page remains end-user while signed in, logout');
+const expired=new JSDOM(fs.readFileSync('public/index.html','utf8'),{url:'https://cmdb.example/',runScripts:'outside-only'});
+expired.window.fetch=async()=>new Response(JSON.stringify({reauthenticationRequired:true,error:'Sign in again'}),{status:401});
+expired.window.eval(fs.readFileSync('public/model.js','utf8'));expired.window.eval(fs.readFileSync('public/app.js','utf8'));
+await wait(()=>expired.window.document.querySelector('#siteSignIn'));
+assert.equal(expired.window.document.querySelector('#siteSignIn').getAttribute('href'),'/signin-with-chatgpt?return_to=%2F');
+assert(!/administra/i.test(expired.window.document.body.textContent));expired.window.close();
+console.log('PASS expired Site identity shows top-level sign-in recovery');
+user.close();w.close();stillUser.close();DB.sql.close();
+})().catch(e=>{console.error(e);process.exit(1)});

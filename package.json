@@ -1,0 +1,13 @@
+{
+  "name": "bsk-infrastructure-cmdb",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node tests/authorization.cjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.12",
+    "jsdom": "^30.1.1"
+  }
+}
