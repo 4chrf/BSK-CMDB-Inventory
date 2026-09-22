@@ -1,0 +1,31 @@
+name: bsk-cmdb
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    init: true
+    environment:
+      APP_ORIGIN: ${APP_ORIGIN:?Set APP_ORIGIN}
+      DB_HOST: ${DB_HOST:?Set database DNS name}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_NAME: ${DB_NAME:-cmdb}
+      DB_USER: ${DB_USER:-cmdb}
+      DB_PASSWORD_FILE: /run/secrets/db_password
+      DB_CA_FILE: /run/secrets/db_ca
+      SEED_SAMPLE_DATA: "false"
+    secrets: [db_password, db_ca]
+    ports: ["127.0.0.1:3000:3000"]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+  db_ca:
+    file: ./certs/db-ca.pem

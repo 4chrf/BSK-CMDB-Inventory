@@ -9,3 +9,6 @@ dist/
 *.zip
 backups/
 upload/
+secrets/
+certs/
+!.env.example

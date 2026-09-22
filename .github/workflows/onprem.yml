@@ -1,0 +1,34 @@
+name: On-premise MariaDB checks
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: disposable-ci-root-password
+          MARIADB_DATABASE: cmdb_test
+          MARIADB_USER: cmdb
+          MARIADB_PASSWORD: disposable-ci-app-password
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    env:
+      DB_HOST: 127.0.0.1
+      DB_NAME: cmdb_test
+      DB_USER: cmdb
+      DB_PASSWORD: disposable-ci-app-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run test:onprem
+      - run: npm run test:integration
+      - run: docker build -t cmdb-test .

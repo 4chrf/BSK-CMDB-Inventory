@@ -1,5 +1,9 @@
 # BSK CMDB Inventory
 
+**On-premise deployment is available:** [Step-by-step deployment guide](docs/ON_PREMISE.md). Run the standalone Node.js backend with MariaDB, local accounts and HTTPS using `compose.yaml`, or connect to a separate database VM with `compose.external-db.yaml`.
+
+The `onprem/` backend is independent from the original Sites Worker described below. It does not use ChatGPT identity headers. Run `npm run test:onprem` for standalone security checks; the GitHub Actions workflow runs the MariaDB integration suite.
+
 Application source for the private BSK Infrastructure CMDB Site. This public repository includes only three clearly marked fictional hosts and one demonstration rack. Production inventory, access records, user identities, credentials, original workbooks and private Site configuration are excluded.
 
 ## Build and test

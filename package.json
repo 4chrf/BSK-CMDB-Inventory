@@ -4,10 +4,17 @@
   "version": "1.0.0",
   "scripts": {
     "build": "node build.mjs",
-    "test": "node tests/authorization.cjs"
+    "test": "node tests/authorization.cjs",
+    "start": "node onprem/server.mjs",
+    "account": "node onprem/cli.mjs",
+    "test:onprem": "node --test tests/onprem-security.test.mjs",
+    "test:integration": "node tests/onprem-integration.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.25.12",
     "jsdom": "^30.1.1"
+  },
+  "dependencies": {
+    "mariadb": "^3.5.4"
   }
 }
