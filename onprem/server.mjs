@@ -87,7 +87,6 @@ export function createApp(pool,{origin=process.env.APP_ORIGIN,allowHttp=process.
    if(['/admin','/admin/'].includes(path)){try{await authenticate(pool,req,true)}catch{res.writeHead(302,{location:'/login?return_to=%2Fadmin'});return res.end()}}
    let data=await readFile(new URL(assets[path],root),'utf8');if(path==='/app.js'){
     data=data.replace('/signin-with-chatgpt?return_to=', '/login?return_to=').replace('Sign in with ChatGPT','Sign in').replace("lockAdmin();renderAdminLogin(false)","location.href='/login?return_to=%2Fadmin'");
-    data+=`\nif(location.pathname==='/admin'||location.pathname==='/admin/'){const b=document.createElement('button');b.className='btn';b.textContent='Sign out';b.onclick=async()=>{const r=await fetch('/api/auth/logout',{method:'POST'});if(r.ok)location.href='/login?return_to=%2Fadmin';else alert('Sign out failed. Please retry.')};document.querySelector('.top-right').append(b);}`;
    }
    const type=path.endsWith('.js')?'text/javascript':path.endsWith('.css')?'text/css':path.endsWith('.svg')?'image/svg+xml':'text/html';return send(res,200,data,{'content-type':type+'; charset=utf-8'});
   }catch(e){if(!e.status)console.error('Request failed',e.code||e.name);send(res,e.status||500,{error:e.status?e.message:'Database request failed; changes were not confirmed.',...(e.status===401?{reauthenticationRequired:true}:{})})}
