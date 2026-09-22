@@ -40,7 +40,8 @@ export function createApp(pool,{origin=process.env.APP_ORIGIN,allowHttp=process.
    }
    if(path.startsWith('/api/')){
     const admin=path.startsWith('/api/admin/');
-    const user=await authenticate(pool,req,admin);
+    const publicWorkspaceRead=path==='/api/workspace'&&method==='GET';
+    const user=publicWorkspaceRead?null:await authenticate(pool,req,admin);
     if(path==='/api/admin/auth/status'&&method==='GET')return send(res,200,{setupRequired:false,authenticated:true});
     if(path==='/api/admin/users'&&method==='GET')return send(res,200,{users:(await pool.query('SELECT id,email,role,enabled,version,created_at FROM users ORDER BY email')).map(safeUser)});
     if(path==='/api/admin/users'&&method==='PUT'){
@@ -57,7 +58,7 @@ export function createApp(pool,{origin=process.env.APP_ORIGIN,allowHttp=process.
      const offset=Math.min(100000,Math.max(0,parseInt(url.searchParams.get('offset'))||0));const rows=await pool.query('SELECT * FROM history ORDER BY at DESC,id DESC LIMIT 51 OFFSET ?',[offset]);return send(res,200,{events:rows.slice(0,50).map(r=>({...r,details:JSON.parse(r.details)})),hasMore:rows.length>50});
     }
     if(['/api/workspace','/api/admin/workspace','/api/admin/backup'].includes(path)&&method==='GET'){
-     const data=await transaction(pool,c=>workspace(c));if(path.endsWith('/backup'))return send(res,200,data.state);if(!admin)data.state.audit=[];return send(res,200,{...data,role:admin?'admin':'reader',user:safeUser(user)});
+     const data=await transaction(pool,c=>workspace(c));if(path.endsWith('/backup'))return send(res,200,data.state);if(!admin)data.state.audit=[];return send(res,200,{...data,role:admin?'admin':'reader',user:user?safeUser(user):{id:'public-reader',email:'',role:'reader',enabled:true}});
     }
     if(path==='/api/workspace'&&method!=='GET')fail(403,'This inventory is read-only.');
     if(['/api/admin/workspace','/api/admin/restore'].includes(path)&&method==='PUT'){
@@ -83,10 +84,10 @@ export function createApp(pool,{origin=process.env.APP_ORIGIN,allowHttp=process.
    if(path==='/login')return send(res,200,await readFile(new URL('./login.html',import.meta.url),'utf8'),{'content-type':'text/html; charset=utf-8'});
    const assets={'/':'index.html','/admin':'index.html','/admin/':'index.html','/app.js':'app.js','/model.js':'model.js','/styles.css':'styles.css','/icon.svg':'icon.svg','/login.js':'../onprem/login.js'};
    if(!assets[path]||!['GET','HEAD'].includes(method))fail(404,'Not found.');
-   if(['/','/admin','/admin/'].includes(path)){try{await authenticate(pool,req)}catch{res.writeHead(302,{location:'/login?return_to='+encodeURIComponent(path.startsWith('/admin')?'/admin':'/')});return res.end()}}
+   if(['/admin','/admin/'].includes(path)){try{await authenticate(pool,req,true)}catch{res.writeHead(302,{location:'/login?return_to=%2Fadmin'});return res.end()}}
    let data=await readFile(new URL(assets[path],root),'utf8');if(path==='/app.js'){
     data=data.replace('/signin-with-chatgpt?return_to=', '/login?return_to=').replace('Sign in with ChatGPT','Sign in').replace("lockAdmin();renderAdminLogin(false)","location.href='/login?return_to=%2Fadmin'");
-    data+=`\n{const b=document.createElement('button');b.className='btn';b.textContent='Sign out';b.onclick=async()=>{const r=await fetch('/api/auth/logout',{method:'POST'});if(r.ok)location.href='/login';else alert('Sign out failed. Please retry.')};document.querySelector('.top-right').append(b);}`;
+    data+=`\nif(location.pathname==='/admin'||location.pathname==='/admin/'){const b=document.createElement('button');b.className='btn';b.textContent='Sign out';b.onclick=async()=>{const r=await fetch('/api/auth/logout',{method:'POST'});if(r.ok)location.href='/login?return_to=%2Fadmin';else alert('Sign out failed. Please retry.')};document.querySelector('.top-right').append(b);}`;
    }
    const type=path.endsWith('.js')?'text/javascript':path.endsWith('.css')?'text/css':path.endsWith('.svg')?'image/svg+xml':'text/html';return send(res,200,data,{'content-type':type+'; charset=utf-8'});
   }catch(e){if(!e.status)console.error('Request failed',e.code||e.name);send(res,e.status||500,{error:e.status?e.message:'Database request failed; changes were not confirmed.',...(e.status===401?{reauthenticationRequired:true}:{})})}
