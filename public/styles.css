@@ -14,7 +14,7 @@
 .source-banner{display:none}
 body[data-role="admin"] .source-banner{display:flex}
 .source-line{display:none}
-body[data-role="admin"] .source-line{display:block}
+
 
 /* Keep labels readable and controls reachable across tablet/mobile sizes. */
 .form-grid label,.form-error,.warning,.plain-list,.activity-item,.check-label,.file-input,.mini-statline{font-size:14px}.activity-item small,.quality-chip,footer,.table-wrap:before{font-size:12px}.searchbox input{min-width:0}.icon-button{min-width:44px;min-height:44px}.modal-head .icon-button{flex-shrink:0}.page-heading p{font-size:16px;line-height:1.5}@media(max-width:900px){nav a{white-space:normal}.sidebar nav a{flex:1 1 135px;flex-direction:row;justify-content:flex-start;gap:8px}.sidebar{flex-direction:column} .stat-icon{display:none}.login-panel{padding:20px}.room-tabs button{min-height:44px}.pagination .btn{min-height:44px}}
