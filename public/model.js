@@ -33,6 +33,7 @@
     const idOK = id => typeof id === 'string' && /^[a-zA-Z0-9-]{1,100}$/.test(id);
     const textOK = (s, max=3000) => typeof s === 'string' && s.length <= max;
     if (!data || data.schemaVersion !== 2 || !Array.isArray(data.hosts) || !Array.isArray(data.racks) || !Array.isArray(data.applications) || !Array.isArray(data.audit) || !Array.isArray(data.sources) || !Array.isArray(data.notes)) fail('Invalid workspace structure.');
+    if (data.rooms !== undefined && (!Array.isArray(data.rooms) || data.rooms.length > 100 || data.rooms.some(name => !textOK(name,150) || !name.trim()) || new Set(data.rooms.map(name => name.toLowerCase())).size !== data.rooms.length)) fail('Invalid computer rooms.');
     if (data.hosts.length > 20000 || data.racks.length > 1000 || data.applications.length > 5000 || data.audit.length > 10000) fail('Workspace limit exceeded.');
     for (const items of [data.hosts, data.racks, data.applications]) if (new Set(items.map(x=>x.id)).size !== items.length || items.some(x=>!idOK(x.id))) fail('Invalid or duplicate identifiers.');
     if (new Set(data.applications.map(a=>appKey(a.name))).size !== data.applications.length) fail('Application names must be unique.');
