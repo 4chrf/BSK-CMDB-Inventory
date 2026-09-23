@@ -73,28 +73,66 @@ function openRack(id){const r=rackById(id);if(!r)return;const s=rackStats(r);con
 function typeLabel(type){return type==='physical'?'Physical':type==='virtual'?'Virtual · VMware':'Needs classification'}
 function recordForm(id,index=0){
  const h=id?hostById(id):null,rec=h?.records[index]||{};
+ const currentPlacement=h?.placements[0]||null;
+ const placedRack=currentPlacement&&rackById(currentPlacement.rackId);
+ const rooms=[...new Set(db.racks.map(r=>r.room))];
+ const selectedRoom=placedRack?.room||(rooms.includes(room)?room:rooms[0]||'');
+ const roomLabel=name=>{const m=String(name).match(/^Salle IT\s*(\d+)$/i);return m?'Computer Room '+m[1]:name};
  const inputs=fields.map(([k,l])=>{
-  if(k==='application')return `<label class="wide">Application *<select name="applicationId" required><option value="">Choose an application…</option>${db.applications.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(a=>`<option value="${a.id}" ${a.id===rec.applicationId?'selected':''}>${esc(a.name)}</option>`).join('')}</select></label>`;
-  return `<label class="${['location','rack','rackUnit','bay'].includes(k)?'physical-field':''}">${esc(l)}${k==='server'?' *':''}<input name="${k}" value="${esc(rec[k]||(k==='server'?h?.server||'':''))}" ${k==='server'?'required':''} maxlength="1500" ${h&&k==='server'?'readonly':''} ${k==='status'?'list="statuses"':''} ${k==='criticality'?'list="criticals"':''}></label>`;
+  if(k==='application')return `<label class="wide">Application<select name="applicationId"><option value="">No application assigned</option>${db.applications.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(a=>`<option value="${esc(a.id)}" ${a.id===rec.applicationId?'selected':''}>${esc(a.name)}</option>`).join('')}</select></label>`;
+  return `<label class="${['location','rack','rackUnit','bay'].includes(k)?'physical-field':''}">${esc(l)}${k==='server'?' *':''}<input name="${k}" value="${esc(rec[k]||(k==='server'?h?.server||'':''))}" maxlength="1500" ${h&&k==='server'?'readonly':''} ${k==='status'?'list="statuses"':''} ${k==='criticality'?'list="criticals"':''}></label>`;
  }).join('');
- modal(h?'Edit host / application record':'Add a host',`<form id="recordForm"><div id="formError" class="form-error" role="alert"></div><div class="form-grid"><label class="wide">Host type *<select name="hostType" required><option value="">Choose physical or virtual…</option><option value="physical" ${h?.type==='physical'?'selected':''}>Physical — computer room</option><option value="virtual" ${h?.type==='virtual'?'selected':''}>Virtual — VMware</option></select></label><p class="wide subtle">${esc(h?.typeBasis||'Physical equipment uses rack positions. Virtual machines use VMware locations.')}</p><div id="vmwareFields" class="wide form-grid">${[['vcenter','vCenter'],['cluster','VMware cluster'],['esxiHost','ESXi host'],['vmName','VM name']].map(([k,l])=>`<label>${l}<input name="vm_${k}" value="${esc(h?.vmware?.[k]||'')}" maxlength="1500"></label>`).join('')}</div>${inputs}<details class="wide"><summary class="link-button">Add an application to the catalog</summary><div class="inline-create"><input id="quickAppName" placeholder="New application name" maxlength="1500" aria-label="New application name"><button type="button" class="btn" id="quickAppSave">Add application</button></div></details></div><datalist id="statuses">${['Prod','QA','Planned','Retired','Decommissioned'].map(v=>`<option value="${v}">`).join('')}</datalist><datalist id="criticals">${['Very High','High','Medium','Low'].map(v=>`<option value="${v}">`).join('')}</datalist></form>`,`<span class="subtle">Admin · database changes</span><div class="actions">${btn('Cancel',h?'host':'close',h?.id||'')}<button class="btn primary" type="submit" form="recordForm">Save record</button></div>`,'INVENTORY ADMINISTRATION');
- const typeSelect=$('[name=hostType]');const changeType=()=>{const virtual=typeSelect.value==='virtual';$('#vmwareFields').hidden=!virtual;$$('.physical-field').forEach(e=>e.hidden=virtual)};typeSelect.onchange=changeType;changeType();
- $('#quickAppSave').onclick=async()=>{
-  const name=$('#quickAppName').value.trim();if(!name){$('#formError').textContent='Enter an application name.';return}
-  const existing=db.applications.find(a=>CmdbModel.appKey(a.name)===CmdbModel.appKey(name));if(existing){$('[name=applicationId]').value=existing.id;toast('Selected the existing application.');return}
-  const app={id:crypto.randomUUID(),name,owner:'',description:'',source:'Added by owner'};
-  if(await transact(()=>db.applications.push(app),'Application added','Added application',name)){$('[name=applicationId]').add(new Option(name,app.id));$('[name=applicationId]').value=app.id;$('#quickAppName').value=''}
+ const placementFields=`<section id="rackPlacementFields" class="wide"><h3>Rack position</h3><p class="subtle">Select a rack and specify the bottom unit and the number of units this host occupies. Leave the rack blank when its position is unknown.</p><div class="form-grid">
+ <label class="wide">Computer room<select name="placementRoom">${rooms.map(r=>`<option value="${esc(r)}" ${r===selectedRoom?'selected':''}>${esc(roomLabel(r))}</option>`).join('')}</select></label>
+ <label class="wide">Rack<select name="placementRackId"><option value="">No confirmed rack position</option></select></label>
+ <label>Starting rack unit (bottom U)<input name="placementUnit" type="number" min="1" max="60" step="1" value="${currentPlacement?.unit||''}" placeholder="e.g. 12"></label>
+ <label>Rack units occupied<input name="placementHeight" type="number" min="1" max="60" step="1" value="${currentPlacement?.height||''}" placeholder="e.g. 2"></label></div>
+ ${h?.placements.length>1?'<p class="subtle">Additional placements are retained. Manage them from the host details.</p>':''}</section>`;
+ modal(h?'Edit host / application record':'Add a host',`<form id="recordForm" novalidate><div id="formError" class="form-error" role="alert" tabindex="-1"></div><div class="form-grid"><label class="wide">Host type *<select name="hostType"><option value="">Choose physical or virtual…</option><option value="physical" ${h?.type==='physical'?'selected':''}>Physical — computer room</option><option value="virtual" ${h?.type==='virtual'?'selected':''}>Virtual — VMware</option></select></label><p class="wide subtle">${esc(h?.typeBasis||'Physical equipment uses rack positions. Virtual machines use VMware locations.')}</p>${placementFields}<div id="vmwareFields" class="wide form-grid">${[['vcenter','vCenter'],['cluster','VMware cluster'],['esxiHost','ESXi host'],['vmName','VM name']].map(([k,l])=>`<label>${l}<input name="vm_${k}" value="${esc(h?.vmware?.[k]||'')}" maxlength="1500"></label>`).join('')}</div>${inputs}<details class="wide"><summary class="link-button">Add an application to the catalog</summary><div class="inline-create"><input id="quickAppName" placeholder="New application name" maxlength="1500" aria-label="New application name"><button type="button" class="btn" id="quickAppSave">Add application</button></div></details></div><datalist id="statuses">${['Prod','QA','Planned','Retired','Decommissioned'].map(v=>`<option value="${v}">`).join('')}</datalist><datalist id="criticals">${['Very High','High','Medium','Low'].map(v=>`<option value="${v}">`).join('')}</datalist></form>`,`<div class="actions">${btn('Cancel',h?'host':'close',h?.id||'')}<button class="btn primary" type="submit" form="recordForm">Save host</button></div>`,'INVENTORY ADMINISTRATION');
+ const form=$('#recordForm'),typeSelect=form.elements.hostType,roomSelect=form.elements.placementRoom,rackSelect=form.elements.placementRackId;
+ const showError=message=>{const box=$('#formError');box.textContent=message;box.focus()};
+ const updateRacks=selected=>{
+  rackSelect.innerHTML='<option value="">No confirmed rack position</option>'+db.racks.filter(r=>r.room===roomSelect.value).map(r=>`<option value="${esc(r.id)}" ${r.id===selected?'selected':''}>${esc(r.aisle)} / ${esc(r.name)} (${r.units}U)</option>`).join('');
+  const enabled=!!rackSelect.value;
+  form.elements.placementUnit.disabled=!enabled;form.elements.placementHeight.disabled=!enabled;
  };
- $('#recordForm').onsubmit=async e=>{
-  e.preventDefault();const values=Object.fromEntries(new FormData(e.target)),server=values.server.trim();
-  if(!server){$('#formError').textContent='Enter a server name.';return}
-  if(db.hosts.some(x=>x.server.toLowerCase()===server.toLowerCase()&&x.id!==id)){$('#formError').textContent='This host already exists. Add an application record to it instead.';return}
-  if(values.hostType==='virtual'&&h?.placements.length){$('#formError').textContent='Remove this host’s physical rack placements before changing it to virtual.';return}
-  const app=db.applications.find(a=>a.id===values.applicationId);if(!app){$('#formError').textContent='Choose an application from the catalog.';return}
-  const record=Object.fromEntries(fields.map(([k])=>[k,k==='application'?app.name:(values[k]||'').trim()]));record.applicationId=app.id;
+ roomSelect.onchange=()=>updateRacks('');
+ rackSelect.onchange=()=>updateRacks(rackSelect.value);
+ const changeType=()=>{const virtual=typeSelect.value==='virtual',physical=typeSelect.value==='physical';$('#vmwareFields').hidden=!virtual;$('#rackPlacementFields').hidden=!physical;$$('.physical-field').forEach(e=>e.hidden=!physical)};
+ typeSelect.onchange=changeType;updateRacks(currentPlacement?.rackId||'');changeType();
+ $('#quickAppSave').onclick=async()=>{
+  const name=$('#quickAppName').value.trim();if(!name){showError('Enter an application name.');return}
+  const existing=db.applications.find(a=>CmdbModel.appKey(a.name)===CmdbModel.appKey(name));if(existing){form.elements.applicationId.value=existing.id;toast('Selected the existing application.');return}
+  const app={id:crypto.randomUUID(),name,owner:'',description:'',source:'Added by administrator'};
+  if(await transact(()=>db.applications.push(app),'Application added','Added application',name)){form.elements.applicationId.add(new Option(name,app.id));form.elements.applicationId.value=app.id;$('#quickAppName').value=''}
+ };
+ form.onsubmit=async e=>{
+  e.preventDefault();$('#formError').textContent='';
+  const values=Object.fromEntries(new FormData(form)),server=String(values.server||'').trim();
+  if(!server){showError('Enter a host name.');return}
+  if(!['physical','virtual'].includes(values.hostType)){showError('Choose physical or virtual host type.');return}
+  if(db.hosts.some(x=>x.server.toLowerCase()===server.toLowerCase()&&x.id!==id)){showError('This host already exists. Add an application record to it instead.');return}
+  if(values.hostType==='virtual'&&h?.placements.length){showError('Remove this host’s physical rack placements before changing it to virtual.');return}
+  const app=values.applicationId?db.applications.find(a=>a.id===values.applicationId):null;
+  if(values.applicationId&&!app){showError('Choose a valid application from the catalog.');return}
+  let rack=null,u=0,height=0;
+  if(values.hostType==='physical'&&rackSelect.value){
+   rack=rackById(rackSelect.value);u=Number(form.elements.placementUnit.value);height=Number(form.elements.placementHeight.value);
+   if(!rack||rack.room!==roomSelect.value){showError('Choose a rack in the selected computer room.');return}
+   if(!Number.isInteger(u)||!Number.isInteger(height)||u<1||height<1||u+height-1>rack.units){showError(`Enter a starting unit and units occupied within the rack’s 1–${rack.units}U capacity.`);return}
+   if(placementList(rack.id).some(({h:other,p})=>!(h&&other.id===h.id&&p===currentPlacement)&&u<p.unit+p.height&&p.unit<u+height)){showError('These rack units already contain a documented device. Choose another position.');return}
+  }else if(values.hostType==='physical'&&currentPlacement){showError('To remove an existing placement, use Remove placement in the host details.');return}
+  const record=Object.fromEntries(fields.map(([k])=>[k,k==='application'?app?.name||'':(values[k]||'').trim()]));record.applicationId=app?.id||'';
   if(values.hostType==='virtual')for(const key of ['rack','rackUnit','bay'])record[key]='';
+  if(rack&&(!h||['Added by administrator','Added by owner'].includes(rec.source))){record.location=rack.room;record.rack=rack.name;record.rackUnit=String(u)}
   const hid=id||crypto.randomUUID();
-  const ok=await transact(()=>{let target=hostById(hid);if(!target){target={id:hid,server,records:[],placements:[],connections:[],sample:false};db.hosts.unshift(target)}target.type=values.hostType;target.typeBasis='Classified by owner';target.sample=false;target.vmware=Object.fromEntries(['vcenter','cluster','esxiHost','vmName'].map(k=>[k,(values['vm_'+k]||'').trim()]));if(target.type==='virtual'&&!target.vmware.vmName)target.vmware.vmName=server;const old=target.records[index];record.source=old?.source||'Added by owner';record.sourceRow=old?.sourceRow||'';record.updatedAt=new Date().toISOString();target.records[index]=record},'Record saved to database',h?'Updated host record':'Added host',server);
+  const ok=await transact(()=>{let target=hostById(hid);if(!target){target={id:hid,server,records:[],placements:[],connections:[],sample:false};db.hosts.unshift(target)}
+   target.type=values.hostType;target.typeBasis='Classified by administrator';
+   target.vmware=Object.fromEntries(['vcenter','cluster','esxiHost','vmName'].map(k=>[k,(values['vm_'+k]||'').trim()]));
+   if(target.type==='virtual'&&!target.vmware.vmName)target.vmware.vmName=server;
+   if(rack){const placement={rackId:rack.id,unit:u,height,label:server,source:currentPlacement?.source||'Rack assignment',positionBasis:'Manual placement'};if(currentPlacement)target.placements[0]=placement;else target.placements.push(placement)}
+   const old=target.records[index];record.source=old?.source||'Added by administrator';record.sourceRow=old?.sourceRow||'';record.updatedAt=new Date().toISOString();target.records[index]=record;
+  },'Host saved to database',h?'Updated host record':'Added host',server);
   if(ok){render();openHost(hid)}
  };
 }
