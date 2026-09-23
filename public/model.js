@@ -56,5 +56,21 @@
     }
     return true;
   }
-  root.CmdbModel = { fieldKeys, migrate, validate, absent, appKey };
+  // Imported placements may overlap. Preserve them until reviewed, but reject
+  // any newly created or moved placement that would claim occupied rack units.
+  function validatePlacementChanges(previous, next) {
+    const before = new Map(previous.hosts.map(host => [host.id, host.placements]));
+    for (const host of next.hosts) for (const [index, placement] of host.placements.entries()) {
+      const unchanged = (before.get(host.id) || []).some(old =>
+        old.rackId === placement.rackId && old.unit === placement.unit && old.height === placement.height);
+      if (unchanged) continue;
+      const end = placement.unit + placement.height;
+      const overlap = next.hosts.some(other => other.placements.some((existing, otherIndex) =>
+        existing.rackId === placement.rackId &&
+        (other.id !== host.id || otherIndex !== index) &&
+        placement.unit < existing.unit + existing.height && existing.unit < end));
+      if (overlap) throw new Error('These rack units already contain a documented device. Choose another position.');
+    }
+  }
+  root.CmdbModel = { fieldKeys, migrate, validate, validatePlacementChanges, absent, appKey };
 })(globalThis);
