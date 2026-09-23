@@ -65,6 +65,7 @@ export function createApp(pool,{origin=process.env.APP_ORIGIN,allowHttp=process.
      const {state,revision,change}=await body(req);if(!Number.isInteger(revision)||revision<0)fail(400,'Valid revision required.');try{globalThis.CmdbModel.validate(state)}catch(e){fail(400,e.message)}
      const result=await transaction(pool,async c=>{
       const actor=await authenticate(c,req,true),previous=await workspace(c);if(previous.revision!==revision)fail(409,'Inventory changed. Reload before saving.');
+      try{globalThis.CmdbModel.validatePlacementChanges(previous.state,state)}catch(e){fail(400,e.message)}
       const restoring=path.endsWith('/restore');
       if(!restoring){
        const removedRacks=previous.state.racks.filter(r=>!state.racks.some(n=>n.id===r.id));
