@@ -108,6 +108,8 @@ export default {
       const { applications, ...workspace }=state;
       const previous=await read(env.DB);
       if(previous.revision!==revision)return json({error:'The inventory has changed. Reload before saving.',conflict:true},409);
+      try { globalThis.CmdbModel.validatePlacementChanges(previous.state,state); }
+      catch(error) { return json({error:error.message},400); }
       const removedRacks=previous.state.racks.filter(r=>!state.racks.some(n=>n.id===r.id));
       if(url.pathname!=='/api/restore' && removedRacks.some(r=>previous.state.hosts.some(h=>h.placements.some(p=>p.rackId===r.id)&&!state.hosts.some(n=>n.id===h.id))))return json({error:'Delete racks separately from their hosts. Rack deletion must retain host records.'},400);
       const removedApps=previous.state.applications.filter(a=>!applications.some(n=>n.id===a.id));
