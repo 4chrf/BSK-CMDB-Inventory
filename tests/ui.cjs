@@ -60,5 +60,38 @@ await wait(()=>expired.window.document.querySelector('#siteSignIn'));
 assert.equal(expired.window.document.querySelector('#siteSignIn').getAttribute('href'),'/signin-with-chatgpt?return_to=%2F');
 assert(!/administra/i.test(expired.window.document.body.textContent));expired.window.close();
 console.log('PASS expired Site identity shows top-level sign-in recovery');
+const empty=new JSDOM(fs.readFileSync('public/index.html','utf8'),{url:'http://b2ksxu4281.oper.b2k.st.com:3000/admin#inventory',runScripts:'outside-only'}),ew=empty.window,ed=ew.document;
+ew.structuredClone=structuredClone;ew.crypto.randomUUID=undefined;
+ew.HTMLDialogElement.prototype.showModal=function(){this.open=true};ew.HTMLDialogElement.prototype.close=function(){this.open=false};
+let emptyState={schemaVersion:2,hosts:[],racks:[],applications:[],audit:[],sources:[],notes:[],importedAt:'2026-09-23'},emptyRevision=0,writes=0;
+ew.fetch=async(url,opts={})=>{
+ if(url==='/api/admin/auth/status')return new Response(JSON.stringify({authenticated:true}),{status:200});
+ if(url==='/api/admin/workspace'&&opts.method==='PUT'){
+  const payload=JSON.parse(opts.body);assert.equal(payload.revision,emptyRevision);
+  ew.CmdbModel.validate(payload.state);emptyState=structuredClone(payload.state);writes++;emptyRevision++;
+  return new Response(JSON.stringify({revision:emptyRevision,audit:[]}),{status:200});
+ }
+ if(url==='/api/admin/workspace')return new Response(JSON.stringify({state:emptyState,revision:emptyRevision,role:'admin',user:{email:'admin@example.test'}}),{status:200});
+ throw Error('Unexpected test request '+url);
+};
+ew.eval(fs.readFileSync('public/model.js','utf8'));ew.eval(fs.readFileSync('public/app.js','utf8'));
+await wait(()=>ed.querySelector('[data-action="add-host"]'));ew.location.hash='room';await wait(()=>ed.querySelector('.room-tabs'));
+assert.deepEqual([...ed.querySelectorAll('.room-tabs button')].map(b=>b.textContent),['Computer Room 1','Computer Room 2']);
+ed.querySelector('[data-action="add-room"]').click();ed.querySelector('#roomForm [name=name]').value='Computer Room 3';
+ed.querySelector('#roomForm').dispatchEvent(new ew.Event('submit',{bubbles:true,cancelable:true}));
+await wait(()=>emptyState.rooms?.includes('Computer Room 3')&&!ed.querySelector('#dialog').open);
+ew.location.hash='inventory';await wait(()=>ed.querySelector('[data-action="add-host"]'));
+ed.querySelector('[data-action="add-host"]').click();
+assert([...ed.querySelectorAll('[name=placementRoom] option')].some(o=>o.value==='Computer Room 3'));
+ed.querySelector('[name=server]').value='BSK-TEST-01';ed.querySelector('[name=hostType]').value='physical';
+ed.querySelector('[name=hostType]').dispatchEvent(new ew.Event('change'));
+ed.querySelector('[name=placementRoom]').value='Computer Room 3';
+ed.querySelector('#recordForm').dispatchEvent(new ew.Event('submit',{bubbles:true,cancelable:true}));
+await wait(()=>emptyState.hosts.some(h=>h.server==='BSK-TEST-01'));
+assert.equal(emptyState.hosts[0].records[0].location,'Computer Room 3');
+assert.equal(emptyState.hosts[0].placements.length,0);assert.equal(writes,2);
+empty.window.close();
+console.log('PASS on-prem HTTP: new room and new physical host save without an assigned rack');
+
 user.close();w.close();stillUser.close();DB.sql.close();
 })().catch(e=>{console.error(e);process.exit(1)});
