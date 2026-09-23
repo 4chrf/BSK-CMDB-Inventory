@@ -16,6 +16,7 @@ function submit(values){for(const [name,value]of Object.entries(values))a.queryS
 submit({username:'achraf-test',password:'This-Is-A-Test-Password-Only',confirmation:'This-Is-A-Test-Password-Only'});await wait(()=>a.querySelector('#adminLogin')&&!a.querySelector('[name=confirmation]'));
 submit({username:'achraf-test',password:'incorrect'});await wait(()=>a.querySelector('#loginError')?.textContent.includes('Incorrect'));assert.equal(a.querySelector('#adminNav'),null);
 submit({username:'achraf-test',password:'This-Is-A-Test-Password-Only'});await wait(()=>a.querySelector('[data-save-user]'));assert(a.querySelector('#adminNav'));assert(a.querySelector('#adminLogout'));assert.equal(a.querySelectorAll('[data-quality]').length,4);
+w.crypto.randomUUID=undefined; // The on-prem HTTP hostname is not a secure browser context.
 w.location.hash='inventory';await wait(()=>a.querySelector('[data-action="add-host"]'));a.querySelector('[data-action="add-host"]').click();
 assert(a.querySelector('[name=applicationId]'));assert.equal(a.querySelector('[name=applicationId]').required,false);
 a.querySelector('[name=server]').value='TEST-PHYSICAL-01';
