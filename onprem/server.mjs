@@ -6,6 +6,10 @@ import {connect,migrate,transaction,workspace,audit} from './db.mjs';
 import {authenticate,fail,digest,token,cookieToken,sessionCookie,verifyPassword} from './security.mjs';
 import {changes} from '../server/access.js';
 const root=new URL('../public/',import.meta.url);
+async function uiStatus(){
+ const [app,model]=await Promise.all([readFile(new URL('app.js',root),'utf8'),readFile(new URL('model.js',root),'utf8')]);
+ return {hostForm:app.includes('Computer room location *')&&app.includes('function newId()'),computerRooms:model.includes('Invalid computer rooms.')};
+}
 async function body(req){if(!req.headers['content-type']?.startsWith('application/json'))fail(415,'JSON required.');let size=0,parts=[];for await(const chunk of req){size+=chunk.length;if(size>1900000)fail(413,'Request exceeds 1.9 MB.');parts.push(chunk)}try{return JSON.parse(Buffer.concat(parts).toString())}catch{fail(400,'Invalid JSON.')}}
 function send(res,status,data,headers={}){res.writeHead(status,{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff','referrer-policy':'same-origin','x-frame-options':'DENY',...headers});res.end(typeof data==='string'?data:JSON.stringify(data))}
 const safeUser=u=>({id:u.id,email:u.email,role:u.role,enabled:!!u.enabled,version:u.version,created_at:u.created_at});
@@ -15,7 +19,7 @@ export function createApp(pool,{origin=process.env.APP_ORIGIN,allowHttp=process.
  return http.createServer(async(req,res)=>{
   try{
    const url=new URL(req.url,origin),path=url.pathname,method=req.method;
-   if(path==='/healthz'){await pool.query('SELECT 1');return send(res,200,{ok:true})}
+   if(path==='/healthz'){await pool.query('SELECT 1');return send(res,200,{ok:true,ui:await uiStatus()})}
    if(!['GET','HEAD'].includes(method)){
     if(req.headers.origin!==origin||req.headers['sec-fetch-site']==='cross-site')fail(403,'Same-origin request required.');
    }
